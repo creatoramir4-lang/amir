@@ -1,0 +1,1317 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#8b5cf6">
+<title>AZHILATOR — مترجم هوشمند</title>
+<meta name="description" content="AZHILATOR — Experimental Beta v0.1 — مترجم فارسی/انگلیسی توسط امیر آژیده">
+<link rel="manifest" href="manifest.json">
+
+<style>
+/* ============================================================
+   AZHILATOR — root tokens & resets
+   ============================================================ */
+:root{
+  --font-fa: 'Vazirmatn', 'Segoe UI', Tahoma, sans-serif;
+  --font-en: 'Poppins', 'Segoe UI', sans-serif;
+
+  --radius-xl: 28px;
+  --radius-lg: 22px;
+  --radius-md: 16px;
+  --radius-sm: 10px;
+
+  --glass-bg: rgba(255,255,255,0.14);
+  --glass-bg-strong: rgba(255,255,255,0.22);
+  --glass-border: rgba(255,255,255,0.35);
+  --glass-shadow: 0 8px 32px rgba(31,38,135,0.18);
+
+  --text-main: #241b3a;
+  --text-sub: rgba(36,27,58,0.65);
+  --text-on-dark: #f4f1fb;
+
+  /* default theme = Purple */
+  --c1:#a78bfa; --c2:#f9a8d4; --c3:#93c5fd; --c4:#c4b5fd;
+  --accent:#8b5cf6; --accent2:#ec4899;
+  --bg-base: linear-gradient(135deg,#ede9fe 0%, #fce7f3 50%, #e0f2fe 100%);
+  --card-text: var(--text-main);
+  --sub-text: var(--text-sub);
+}
+
+*{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html,body{ height:100%; }
+body{
+  margin:0;
+  font-family: var(--font-en), var(--font-fa);
+  color: var(--card-text);
+  background: var(--bg-base);
+  overflow-x:hidden;
+  min-height:100vh;
+  transition: background 0.8s ease;
+  -webkit-font-smoothing:antialiased;
+}
+[lang-mode="fa"]{ font-family: var(--font-fa); }
+::selection{ background: var(--accent); color:#fff; }
+button{ font-family:inherit; }
+input,textarea{ font-family:inherit; }
+
+/* Scrollbar */
+::-webkit-scrollbar{ width:8px; }
+::-webkit-scrollbar-thumb{ background: var(--accent); border-radius:10px; opacity:.5;}
+::-webkit-scrollbar-track{ background:transparent; }
+
+/* ============================================================
+   ANIMATED BACKGROUND — floating blobs
+   ============================================================ */
+.bg-wrap{
+  position:fixed; inset:0; z-index:-1; overflow:hidden;
+}
+.blob{
+  position:absolute;
+  border-radius:50%;
+  filter: blur(60px);
+  opacity:0.55;
+  will-change: transform;
+}
+.blob1{ width:340px; height:340px; background: var(--c1); top:-80px; left:-60px; animation: float1 16s ease-in-out infinite; }
+.blob2{ width:280px; height:280px; background: var(--c2); bottom:-60px; right:-40px; animation: float2 20s ease-in-out infinite; }
+.blob3{ width:260px; height:260px; background: var(--c3); top:40%; left:60%; animation: float3 18s ease-in-out infinite; }
+.blob4{ width:200px; height:200px; background: var(--c4); top:65%; left:10%; animation: float4 22s ease-in-out infinite; }
+
+@keyframes float1{
+  0%,100%{ transform: translate(0,0) scale(1) rotate(0deg); }
+  33%{ transform: translate(60px,80px) scale(1.15) rotate(30deg); }
+  66%{ transform: translate(-30px,40px) scale(0.9) rotate(-20deg); }
+}
+@keyframes float2{
+  0%,100%{ transform: translate(0,0) scale(1) rotate(0deg); }
+  50%{ transform: translate(-70px,-60px) scale(1.2) rotate(45deg); }
+}
+@keyframes float3{
+  0%,100%{ transform: translate(0,0) scale(1); }
+  50%{ transform: translate(-90px,50px) scale(1.25); }
+}
+@keyframes float4{
+  0%,100%{ transform: translate(0,0) scale(1); }
+  50%{ transform: translate(60px,-40px) scale(0.8); }
+}
+.grain{
+  position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:0.03;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ============================================================
+   LAYOUT / SCREENS
+   ============================================================ */
+.screen{
+  position:fixed; inset:0;
+  display:flex; align-items:center; justify-content:center;
+  padding: 24px;
+  opacity:0; visibility:hidden; pointer-events:none;
+  transform: scale(0.97) translateY(14px);
+  transition: opacity 0.5s cubic-bezier(.22,1,.36,1), transform 0.5s cubic-bezier(.22,1,.36,1), visibility 0s linear 0.5s;
+  overflow-y:auto;
+}
+.screen.active{
+  opacity:1; visibility:visible; pointer-events:auto;
+  transform: scale(1) translateY(0);
+  transition: opacity 0.55s cubic-bezier(.22,1,.36,1), transform 0.55s cubic-bezier(.22,1,.36,1), visibility 0s;
+}
+
+/* Glass card base */
+.glass{
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(22px) saturate(160%);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--glass-shadow);
+}
+
+/* ============================================================
+   LOGIN SCREEN
+   ============================================================ */
+.auth-card{
+  width:100%; max-width:420px;
+  padding: 40px 30px 34px;
+  position:relative;
+  animation: cardIn 0.7s cubic-bezier(.22,1,.36,1);
+}
+@keyframes cardIn{
+  from{ opacity:0; transform: translateY(30px) scale(0.95); }
+  to{ opacity:1; transform: translateY(0) scale(1); }
+}
+.logo-badge{
+  width:74px; height:74px; margin:0 auto 14px;
+  border-radius: 22px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  display:flex; align-items:center; justify-content:center;
+  font-size:34px;
+  box-shadow: 0 10px 30px rgba(139,92,246,0.4);
+  animation: logoPulse 3s ease-in-out infinite;
+}
+@keyframes logoPulse{
+  0%,100%{ transform: scale(1) rotate(0deg); }
+  50%{ transform: scale(1.06) rotate(4deg); }
+}
+.auth-title{
+  text-align:center; font-weight:800; font-size:26px; letter-spacing:0.5px;
+  margin: 6px 0 2px;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+}
+.auth-sub{
+  text-align:center; font-size:13px; color:var(--sub-text); margin-bottom:26px; font-weight:500;
+}
+.field{
+  position:relative; margin-bottom:16px;
+}
+.field input{
+  width:100%; padding:15px 46px 15px 16px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid rgba(255,255,255,0.5);
+  background: rgba(255,255,255,0.35);
+  outline:none; font-size:15px; color:var(--text-main);
+  transition: all 0.3s ease;
+}
+[dir="rtl"] .field input{ padding:15px 16px 15px 46px; }
+.field input:focus{
+  border-color: var(--accent);
+  background: rgba(255,255,255,0.55);
+  box-shadow: 0 0 0 4px rgba(139,92,246,0.15);
+}
+.field .icon{
+  position:absolute; right:16px; top:50%; transform:translateY(-50%);
+  font-size:18px; opacity:0.6; pointer-events:none;
+}
+[dir="rtl"] .field .icon{ right:auto; left:16px; }
+.field label{
+  display:block; font-size:12.5px; font-weight:600; color:var(--sub-text); margin-bottom:6px; padding:0 2px;
+}
+
+.btn{
+  border:none; cursor:pointer; position:relative; overflow:hidden;
+  border-radius: var(--radius-md);
+  font-weight:700; letter-spacing:0.3px;
+  transition: transform 0.2s ease, box-shadow 0.3s ease, filter 0.2s ease;
+  -webkit-user-select:none; user-select:none;
+}
+.btn:active{ transform: scale(0.96); }
+.btn-primary{
+  width:100%; padding:16px; font-size:15.5px; color:#fff;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  box-shadow: 0 10px 26px rgba(139,92,246,0.38);
+  margin-top:6px;
+}
+.btn-primary:hover{ filter:brightness(1.06); box-shadow: 0 12px 32px rgba(139,92,246,0.48); }
+.ripple-el{
+  position:absolute; border-radius:50%;
+  background: rgba(255,255,255,0.55);
+  transform: scale(0);
+  animation: rippleAnim 0.6s ease-out forwards;
+  pointer-events:none;
+}
+@keyframes rippleAnim{ to{ transform: scale(3.2); opacity:0; } }
+
+.auth-footer{ text-align:center; margin-top:18px; font-size:12.5px; color:var(--sub-text); }
+.auth-footer b{ color: var(--accent); font-weight:700; }
+
+.err-msg{
+  color:#e11d48; font-size:12.5px; text-align:center; margin-top:10px; min-height:16px; font-weight:600;
+}
+
+/* ============================================================
+   WELCOME SCREEN
+   ============================================================ */
+.welcome-card{
+  width:100%; max-width:460px; padding:44px 30px; text-align:center;
+  animation: cardIn 0.7s cubic-bezier(.22,1,.36,1);
+}
+.w-logo{
+  font-size:52px; margin-bottom:6px;
+  animation: spinIn 1s cubic-bezier(.22,1,.36,1);
+}
+@keyframes spinIn{
+  from{ opacity:0; transform: rotate(-160deg) scale(0.3); }
+  to{ opacity:1; transform: rotate(0) scale(1); }
+}
+.w-title{
+  font-size:30px; font-weight:900; letter-spacing:1px;
+  background: linear-gradient(90deg, var(--accent), var(--accent2), var(--c3));
+  background-size:200% auto;
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+  animation: shine 4s linear infinite;
+}
+@keyframes shine{ to{ background-position: 200% center; } }
+.w-badge{
+  display:inline-block; margin-top:10px; padding:6px 16px;
+  font-size:12px; font-weight:700; border-radius:999px;
+  background: rgba(139,92,246,0.15); color: var(--accent);
+  letter-spacing:0.5px;
+}
+.w-greet{ margin: 22px 0 8px; font-size:15px; color:var(--sub-text); }
+.w-greet b{ color:var(--card-text); }
+
+.founder-box{
+  margin: 22px 0; padding:20px; border-radius: var(--radius-lg);
+  background: var(--glass-bg-strong); border:1px solid var(--glass-border);
+  display:flex; flex-direction:column; align-items:center; gap:8px;
+}
+.founder-avatar{
+  width:64px; height:64px; border-radius:50%;
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  display:flex; align-items:center; justify-content:center;
+  font-size:26px; color:#fff; font-weight:800;
+  box-shadow: 0 0 0 4px rgba(251,191,36,0.25), 0 8px 20px rgba(245,158,11,0.4);
+  position:relative;
+}
+.founder-avatar::after{
+  content:'👑'; position:absolute; top:-18px; font-size:22px;
+  animation: crownFloat 2.4s ease-in-out infinite;
+}
+@keyframes crownFloat{ 0%,100%{ transform: translateY(0) rotate(-6deg);} 50%{ transform: translateY(-4px) rotate(6deg);} }
+.founder-name{ font-size:17px; font-weight:800; }
+.founder-roles{ display:flex; gap:6px; flex-wrap:wrap; justify-content:center; }
+.role-chip{
+  font-size:11px; font-weight:700; padding:4px 10px; border-radius:999px;
+  background: rgba(139,92,246,0.15); color: var(--accent);
+}
+
+/* ============================================================
+   MAIN APP
+   ============================================================ */
+#app-screen{ align-items:flex-start; padding-top: 18px; padding-bottom: 90px; }
+.app-container{ width:100%; max-width:640px; margin:0 auto; }
+
+.topbar{
+  display:flex; align-items:center; justify-content:space-between;
+  padding: 14px 18px; margin-bottom:16px;
+  animation: cardIn 0.6s cubic-bezier(.22,1,.36,1);
+}
+.topbar-left{ display:flex; align-items:center; gap:10px; }
+.topbar-logo{
+  width:40px; height:40px; border-radius:14px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  display:flex; align-items:center; justify-content:center; font-size:19px;
+  box-shadow: 0 6px 16px rgba(139,92,246,0.35);
+}
+.topbar-title{ font-size:18px; font-weight:800; }
+.topbar-title span{ display:block; font-size:10px; font-weight:600; color:var(--sub-text); letter-spacing:0.5px; }
+.icon-btn{
+  width:42px; height:42px; border-radius:14px;
+  display:flex; align-items:center; justify-content:center;
+  background: var(--glass-bg); border:1px solid var(--glass-border);
+  font-size:18px; cursor:pointer;
+}
+.topbar-actions{ display:flex; gap:8px; }
+
+.translate-card{
+  padding: 20px; margin-bottom:16px;
+  animation: cardIn 0.65s cubic-bezier(.22,1,.36,1);
+}
+.lang-row{
+  display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;
+}
+.lang-pill{
+  padding:8px 16px; border-radius:999px; font-size:13px; font-weight:700;
+  background: rgba(255,255,255,0.4); border:1px solid var(--glass-border);
+  display:flex; align-items:center; gap:6px;
+}
+.swap-btn{
+  width:38px; height:38px; border-radius:50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color:#fff; display:flex; align-items:center; justify-content:center;
+  font-size:16px; cursor:pointer; border:none;
+  box-shadow: 0 6px 16px rgba(139,92,246,0.35);
+  transition: transform 0.4s cubic-bezier(.22,1,.36,1);
+}
+.swap-btn.spin{ transform: rotate(180deg); }
+
+textarea#inputText{
+  width:100%; min-height:130px; padding:16px; resize:vertical;
+  border-radius: var(--radius-md); border:1.5px solid rgba(255,255,255,0.5);
+  background: rgba(255,255,255,0.4); outline:none; font-size:15.5px; line-height:1.7;
+  color: var(--text-main); transition: all 0.3s ease;
+}
+textarea#inputText:focus{ border-color: var(--accent); background: rgba(255,255,255,0.6); box-shadow: 0 0 0 4px rgba(139,92,246,0.12); }
+.char-count{ text-align:left; font-size:11px; color:var(--sub-text); margin-top:6px; }
+[dir="rtl"] .char-count{ text-align:right; }
+
+.action-row{ display:flex; gap:10px; margin-top:14px; flex-wrap:wrap; }
+.btn-action{
+  flex:1; min-width:120px; padding:14px; font-size:14.5px; color:#fff;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  box-shadow: 0 8px 20px rgba(139,92,246,0.32);
+  display:flex; align-items:center; justify-content:center; gap:8px;
+}
+.btn-ghost{
+  padding:14px 18px; font-size:14px; font-weight:700;
+  background: rgba(255,255,255,0.4); border:1px solid var(--glass-border); color: var(--card-text);
+  display:flex; align-items:center; justify-content:center; gap:6px;
+}
+
+.output-card{
+  padding:20px; min-height:150px; position:relative;
+  animation: cardIn 0.7s cubic-bezier(.22,1,.36,1);
+}
+.output-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+.output-label{ font-size:12.5px; font-weight:700; color:var(--sub-text); letter-spacing:0.4px; text-transform:uppercase; }
+.output-tools{ display:flex; gap:6px; }
+.mini-btn{
+  width:34px; height:34px; border-radius:10px; border:none; cursor:pointer;
+  background: rgba(255,255,255,0.4); border:1px solid var(--glass-border);
+  display:flex; align-items:center; justify-content:center; font-size:14px;
+}
+#outputText{
+  font-size:16px; line-height:1.8; min-height:70px; color:var(--text-main); white-space:pre-wrap; word-break:break-word;
+}
+.placeholder-text{ color:var(--sub-text); font-style:italic; }
+
+.status-row{ display:flex; align-items:center; gap:10px; margin-top:6px; font-size:13px; color:var(--sub-text); min-height:18px; }
+.spinner{
+  width:16px; height:16px; border-radius:50%;
+  border:2.5px solid rgba(139,92,246,0.2); border-top-color: var(--accent);
+  animation: spin 0.7s linear infinite; display:none;
+}
+.spinner.show{ display:inline-block; }
+@keyframes spin{ to{ transform: rotate(360deg); } }
+
+.toolbar-row{ display:flex; gap:10px; margin-top:16px; }
+
+.bottom-nav{
+  position:fixed; bottom:0; left:0; right:0; z-index:20;
+  display:flex; justify-content:center; padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+}
+.nav-inner{
+  display:flex; gap:6px; padding:8px; border-radius: 24px;
+  max-width:640px; width:100%;
+  background: var(--glass-bg-strong); border:1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+.nav-btn{
+  flex:1; border:none; background:transparent; cursor:pointer; padding:10px 4px;
+  display:flex; flex-direction:column; align-items:center; gap:3px;
+  border-radius:16px; color: var(--sub-text); transition: all 0.25s ease;
+}
+.nav-btn.active{ background: linear-gradient(135deg, var(--accent), var(--accent2)); color:#fff; }
+.nav-btn span.ico{ font-size:19px; }
+.nav-btn span.lbl{ font-size:10.5px; font-weight:700; }
+
+/* Theme grid */
+.theme-grid{ display:grid; grid-template-columns: repeat(2,1fr); gap:10px; margin-top:14px; }
+.theme-swatch{
+  padding:14px 10px; border-radius: var(--radius-md); cursor:pointer;
+  border:2px solid transparent; text-align:center; font-size:12.5px; font-weight:700;
+  color:#241b3a; position:relative; overflow:hidden; transition: transform 0.25s ease, border-color 0.25s ease;
+}
+.theme-swatch:active{ transform: scale(0.95); }
+.theme-swatch.selected{ border-color:#fff; box-shadow: 0 0 0 3px var(--accent); }
+.theme-swatch .dot-row{ display:flex; justify-content:center; gap:4px; margin-bottom:8px; }
+.theme-swatch .dot{ width:14px; height:14px; border-radius:50%; box-shadow:0 2px 6px rgba(0,0,0,0.15); }
+
+/* ============================================================
+   MODALS
+   ============================================================ */
+.modal-overlay{
+  position:fixed; inset:0; z-index:50; display:flex; align-items:flex-end; justify-content:center;
+  background: rgba(20,10,40,0.45); backdrop-filter: blur(6px);
+  opacity:0; visibility:hidden; transition: opacity 0.35s ease, visibility 0s linear 0.35s;
+}
+.modal-overlay.active{ opacity:1; visibility:visible; transition: opacity 0.35s ease; }
+@media(min-width:720px){ .modal-overlay{ align-items:center; } }
+
+.modal-box{
+  width:100%; max-width:560px; max-height:86vh; overflow-y:auto;
+  border-radius: 28px 28px 0 0; padding: 26px 22px calc(26px + env(safe-area-inset-bottom));
+  background: rgba(255,255,255,0.5); backdrop-filter: blur(26px) saturate(180%);
+  border: 1px solid rgba(255,255,255,0.5);
+  transform: translateY(40px); transition: transform 0.4s cubic-bezier(.22,1,.36,1);
+}
+.modal-overlay.active .modal-box{ transform: translateY(0); }
+@media(min-width:720px){ .modal-box{ border-radius: 28px; transform: scale(0.94) translateY(10px); }
+  .modal-overlay.active .modal-box{ transform: scale(1) translateY(0); } }
+
+.modal-handle{ width:44px; height:5px; border-radius:10px; background: rgba(0,0,0,0.15); margin: -10px auto 14px; }
+.modal-title-row{ display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; }
+.modal-title{ font-size:20px; font-weight:800; }
+.close-btn{
+  width:36px; height:36px; border-radius:50%; border:none; cursor:pointer;
+  background: rgba(0,0,0,0.06); font-size:16px; display:flex; align-items:center; justify-content:center;
+}
+
+.section-eyebrow{ font-size:11.5px; font-weight:800; letter-spacing:1px; color: var(--accent); text-transform:uppercase; margin: 18px 0 10px; }
+.section-eyebrow:first-of-type{ margin-top:0; }
+
+.member-card{
+  display:flex; align-items:center; gap:14px; padding:13px 14px; margin-bottom:9px;
+  border-radius: var(--radius-md); background: rgba(255,255,255,0.5); border:1px solid rgba(255,255,255,0.6);
+  transition: transform 0.25s ease;
+}
+.member-card:active{ transform: scale(0.98); }
+.avatar{
+  width:48px; height:48px; min-width:48px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:17px; font-weight:800; color:#fff; position:relative;
+}
+.avatar.founder-av{ background: linear-gradient(135deg,#fbbf24,#f59e0b); box-shadow:0 0 0 3px rgba(251,191,36,0.3);}
+.avatar.teacher-av{ background: linear-gradient(135deg,#60a5fa,#3b82f6); box-shadow:0 0 0 3px rgba(96,165,250,0.3);}
+.mem-info{ flex:1; min-width:0; }
+.mem-name{ font-size:14.5px; font-weight:700; color:#241b3a; }
+.mem-role{ font-size:11.5px; color:rgba(36,27,58,0.6); font-weight:600; margin-top:2px; }
+.mem-badge{
+  font-size:10px; font-weight:800; padding:3px 9px; border-radius:999px; white-space:nowrap;
+}
+
+/* About page */
+.about-hero{ text-align:center; padding: 10px 0 20px; }
+.about-hero .w-logo{ font-size:44px; }
+.about-line{ font-size:13.5px; color:var(--sub-text); margin-top:4px; line-height:1.8; }
+.info-tile{
+  display:flex; justify-content:space-between; align-items:center; padding:14px 16px; margin-bottom:8px;
+  border-radius: var(--radius-md); background: rgba(255,255,255,0.5); border:1px solid rgba(255,255,255,0.6);
+  font-size:13.5px;
+}
+.info-tile b{ font-weight:700; }
+
+/* Toast */
+#toast{
+  position:fixed; bottom:100px; left:50%; transform: translateX(-50%) translateY(30px);
+  background: rgba(30,20,50,0.9); color:#fff; padding:12px 22px; border-radius:14px;
+  font-size:13.5px; font-weight:600; z-index:100; opacity:0; pointer-events:none;
+  transition: all 0.4s cubic-bezier(.22,1,.36,1); display:flex; align-items:center; gap:8px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+#toast.show{ opacity:1; transform: translateX(-50%) translateY(0); }
+
+/* Dark theme overrides */
+body.theme-dark{ --card-text:#f4f1fb; --sub-text: rgba(244,241,251,0.65); }
+body.theme-dark .glass{ background: rgba(30,25,50,0.45); border-color: rgba(255,255,255,0.12); }
+body.theme-dark .field input, body.theme-dark textarea#inputText{ background: rgba(255,255,255,0.08); color:#f4f1fb; border-color: rgba(255,255,255,0.15); }
+body.theme-dark .field input::placeholder, body.theme-dark textarea#inputText::placeholder{ color: rgba(244,241,251,0.4); }
+body.theme-dark .lang-pill, body.theme-dark .icon-btn, body.theme-dark .mini-btn, body.theme-dark .btn-ghost{ background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.15); color:#f4f1fb; }
+body.theme-dark .modal-box{ background: rgba(24,18,40,0.85); border-color: rgba(255,255,255,0.1); }
+body.theme-dark .member-card, body.theme-dark .info-tile{ background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); }
+body.theme-dark .mem-name{ color:#f4f1fb; }
+body.theme-dark .mem-role{ color: rgba(244,241,251,0.55); }
+body.theme-dark .theme-swatch{ color:#f4f1fb; }
+body.theme-dark .nav-inner{ background: rgba(30,25,50,0.7); border-color: rgba(255,255,255,0.1); }
+
+/* Responsive tweaks */
+@media(max-width:400px){
+  .auth-card, .welcome-card{ padding: 32px 20px 28px; }
+  .action-row{ flex-direction:column; }
+  .btn-action, .btn-ghost{ width:100%; }
+}
+
+/* Utility */
+.hidden{ display:none !important; }
+.fade-in{ animation: fadeIn 0.4s ease; }
+@keyframes fadeIn{ from{ opacity:0; } to{ opacity:1; } }
+.shake{ animation: shakeAnim 0.4s ease; }
+@keyframes shakeAnim{ 0%,100%{transform:translateX(0);} 25%{transform:translateX(-8px);} 75%{transform:translateX(8px);} }
+
+.link-btn{ background:none; border:none; color:var(--accent); font-weight:700; cursor:pointer; font-size:12.5px; }
+
+.lang-dir-toggle{ display:flex; gap:6px; align-items:center; }
+</style>
+</head>
+<body>
+
+<div class="bg-wrap" id="bgWrap">
+  <div class="blob blob1"></div>
+  <div class="blob blob2"></div>
+  <div class="blob blob3"></div>
+  <div class="blob blob4"></div>
+</div>
+<div class="grain"></div>
+
+<!-- ============================================================
+     LOGIN SCREEN
+============================================================ -->
+<div class="screen active" id="login-screen">
+  <div class="auth-card glass">
+    <div class="logo-badge">⚡</div>
+    <div class="auth-title">AZHILATOR</div>
+    <div class="auth-sub" id="loginSubText">ورود به حساب کاربری</div>
+
+    <form id="loginForm" autocomplete="off">
+      <div class="field">
+        <label id="lblUsername">نام کاربری</label>
+        <input type="text" id="regUsername" placeholder="مثال: amir_azh" required>
+        <span class="icon">👤</span>
+      </div>
+      <div class="field">
+        <label id="lblPhone">شماره موبایل</label>
+        <input type="tel" id="regPhone" placeholder="09xxxxxxxxx" required inputmode="numeric" maxlength="11">
+        <span class="icon">📱</span>
+      </div>
+      <div class="field">
+        <label id="lblPassword">رمز عبور</label>
+        <input type="password" id="regPassword" placeholder="••••••••" required minlength="4">
+        <span class="icon">🔒</span>
+      </div>
+      <button type="submit" class="btn btn-primary" id="loginSubmitBtn">ورود / ثبت‌نام</button>
+      <div class="err-msg" id="loginError"></div>
+    </form>
+
+    <div class="auth-footer">
+      نسخه <b>Experimental Beta v0.1</b> — ساخته شده توسط <b>امیر آژیده</b>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     WELCOME SCREEN
+============================================================ -->
+<div class="screen" id="welcome-screen">
+  <div class="welcome-card glass">
+    <div class="w-logo">⚡</div>
+    <div class="w-title">AZHILATOR</div>
+    <div class="w-badge">Experimental Version · Beta v0.1</div>
+    <div class="w-greet">خوش آمدی، <b id="welcomeUserName">کاربر</b> 👋</div>
+
+    <div class="founder-box">
+      <div class="founder-avatar">A</div>
+      <div class="founder-name">امیر آژیده</div>
+      <div class="founder-roles">
+        <span class="role-chip">Founder</span>
+        <span class="role-chip">Lead Developer</span>
+        <span class="role-chip">UI Designer</span>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" id="enterAppBtn">ورود به اپلیکیشن 🚀</button>
+  </div>
+</div>
+
+<!-- ============================================================
+     MAIN APP SCREEN
+============================================================ -->
+<div class="screen" id="app-screen">
+  <div class="app-container">
+
+    <div class="topbar glass">
+      <div class="topbar-left">
+        <div class="topbar-logo">⚡</div>
+        <div class="topbar-title">AZHILATOR <span>Beta v0.1</span></div>
+      </div>
+      <div class="topbar-actions">
+        <button class="icon-btn" id="logoutBtn" title="خروج">🚪</button>
+      </div>
+    </div>
+
+    <!-- TRANSLATE TAB -->
+    <div id="tab-translate">
+      <div class="translate-card glass">
+        <div class="lang-row">
+          <div class="lang-pill" id="pillFrom">🇮🇷 فارسی</div>
+          <button class="swap-btn" id="swapBtn" title="تعویض زبان">⇄</button>
+          <div class="lang-pill" id="pillTo">🇬🇧 English</div>
+        </div>
+
+        <textarea id="inputText" placeholder="متن خود را برای ترجمه اینجا بنویسید..." maxlength="2000"></textarea>
+        <div class="char-count"><span id="charCount">0</span>/2000</div>
+
+        <div class="action-row">
+          <button class="btn btn-action" id="translateBtn">
+            <span id="translateBtnIcon">🌐</span> <span id="translateBtnText">ترجمه کن</span>
+          </button>
+          <button class="btn btn-ghost" id="clearBtn">🗑️ پاک کردن</button>
+        </div>
+
+        <div class="status-row">
+          <span class="spinner" id="loadingSpinner"></span>
+          <span id="statusText"></span>
+        </div>
+      </div>
+
+      <div class="output-card glass">
+        <div class="output-head">
+          <span class="output-label">نتیجه ترجمه</span>
+          <div class="output-tools">
+            <button class="mini-btn" id="copyBtn" title="کپی">📋</button>
+            <button class="mini-btn" id="shareBtn" title="اشتراک‌گذاری">📤</button>
+            <button class="mini-btn" id="speakBtn" title="خواندن متن">🔊</button>
+          </div>
+        </div>
+        <div id="outputText"><span class="placeholder-text">ترجمه شما اینجا نمایش داده می‌شود...</span></div>
+      </div>
+    </div>
+
+    <!-- THEMES TAB -->
+    <div id="tab-themes" class="hidden">
+      <div class="translate-card glass">
+        <div class="output-label" style="margin-bottom:6px;">انتخاب تم رنگی</div>
+        <div style="font-size:12.5px;color:var(--sub-text);margin-bottom:6px;">یکی از ۱۰ تم زیبا را انتخاب کن</div>
+        <div class="theme-grid" id="themeGrid"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Bottom navigation -->
+<div class="bottom-nav hidden" id="bottomNav">
+  <div class="nav-inner">
+    <button class="nav-btn active" data-tab="translate"><span class="ico">🌐</span><span class="lbl">ترجمه</span></button>
+    <button class="nav-btn" data-tab="themes"><span class="ico">🎨</span><span class="lbl">تم‌ها</span></button>
+    <button class="nav-btn" id="teamNavBtn"><span class="ico">👥</span><span class="lbl">تیم</span></button>
+    <button class="nav-btn" id="aboutNavBtn"><span class="ico">ℹ️</span><span class="lbl">درباره</span></button>
+  </div>
+</div>
+
+<!-- ============================================================
+     TEAM MODAL
+============================================================ -->
+<div class="modal-overlay" id="teamModal">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-title-row">
+      <div class="modal-title">👥 تیم توسعه AZHILATOR</div>
+      <button class="close-btn" data-close="teamModal">✕</button>
+    </div>
+
+    <div class="section-eyebrow">👑 بنیان‌گذار</div>
+    <div class="member-card">
+      <div class="avatar founder-av">A</div>
+      <div class="mem-info">
+        <div class="mem-name">امیر آژیده</div>
+        <div class="mem-role">Founder · Lead Developer · UI Designer</div>
+      </div>
+      <div class="mem-badge" style="background:rgba(245,158,11,0.18); color:#b45309;">Founder</div>
+    </div>
+
+    <div class="section-eyebrow">👥 اعضای تیم</div>
+    <div id="membersList"></div>
+
+    <div class="section-eyebrow">👨‍🏫 استاد راهنما</div>
+    <div class="member-card">
+      <div class="avatar teacher-av">Y</div>
+      <div class="mem-info">
+        <div class="mem-name">یاشار نورعشق</div>
+        <div class="mem-role">Teacher · Supervisor</div>
+      </div>
+      <div class="mem-badge" style="background:rgba(59,130,246,0.18); color:#1d4ed8;">Teacher</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     ABOUT MODAL
+============================================================ -->
+<div class="modal-overlay" id="aboutModal">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-title-row">
+      <div class="modal-title">درباره اپلیکیشن</div>
+      <button class="close-btn" data-close="aboutModal">✕</button>
+    </div>
+
+    <div class="about-hero">
+      <div class="w-logo">⚡</div>
+      <div class="w-title" style="font-size:24px;">AZHILATOR</div>
+      <div class="about-line">Experimental Version</div>
+      <div class="about-line">Developed by <b>Amir Azhideh</b></div>
+    </div>
+
+    <div class="info-tile"><span>نسخه</span><b>Experimental Beta v0.1</b></div>
+    <div class="info-tile"><span>توسعه‌دهنده</span><b>امیر آژیده</b></div>
+    <div class="info-tile"><span>موتور ترجمه</span><b>Multi-Engine AI (Smart Cache)</b></div>
+    <div class="info-tile"><span>ذخیره‌سازی</span><b>Local Storage</b></div>
+    <div class="info-tile"><span>سال ساخت</span><b>2026</b></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   THEME DEFINITIONS
+============================================================ */
+const THEMES = [
+  { id:'purple', name:'بنفش', c1:'#a78bfa', c2:'#f9a8d4', c3:'#93c5fd', c4:'#c4b5fd', accent:'#8b5cf6', accent2:'#ec4899', bg:'linear-gradient(135deg,#ede9fe 0%,#fce7f3 50%,#e0f2fe 100%)' },
+  { id:'blue', name:'آبی', c1:'#60a5fa', c2:'#93c5fd', c3:'#38bdf8', c4:'#818cf8', accent:'#3b82f6', accent2:'#0ea5e9', bg:'linear-gradient(135deg,#dbeafe 0%,#e0f2fe 50%,#eef2ff 100%)' },
+  { id:'pink', name:'صورتی', c1:'#f9a8d4', c2:'#fda4af', c3:'#f0abfc', c4:'#fbcfe8', accent:'#ec4899', accent2:'#f43f5e', bg:'linear-gradient(135deg,#fce7f3 0%,#ffe4e6 50%,#fdf2f8 100%)' },
+  { id:'green', name:'سبز', c1:'#86efac', c2:'#6ee7b7', c3:'#a7f3d0', c4:'#bbf7d0', accent:'#10b981', accent2:'#22c55e', bg:'linear-gradient(135deg,#dcfce7 0%,#d1fae5 50%,#ecfdf5 100%)' },
+  { id:'ocean', name:'اقیانوس', c1:'#67e8f9', c2:'#7dd3fc', c3:'#5eead4', c4:'#93c5fd', accent:'#06b6d4', accent2:'#0891b2', bg:'linear-gradient(135deg,#cffafe 0%,#e0f2fe 50%,#ecfeff 100%)' },
+  { id:'candy', name:'کندی', c1:'#fda4af', c2:'#fde68a', c3:'#c4b5fd', c4:'#f9a8d4', accent:'#fb7185', accent2:'#f472b6', bg:'linear-gradient(135deg,#ffe4e6 0%,#fef9c3 50%,#fae8ff 100%)' },
+  { id:'galaxy', name:'کهکشان', c1:'#818cf8', c2:'#c084fc', c3:'#a78bfa', c4:'#6366f1', accent:'#6366f1', accent2:'#a855f7', bg:'linear-gradient(135deg,#e0e7ff 0%,#ede9fe 50%,#f3e8ff 100%)' },
+  { id:'sunset', name:'غروب', c1:'#fb923c', c2:'#f87171', c3:'#fbbf24', c4:'#fca5a5', accent:'#f97316', accent2:'#ef4444', bg:'linear-gradient(135deg,#ffedd5 0%,#fee2e2 50%,#fef3c7 100%)' },
+  { id:'aurora', name:'شفق قطبی', c1:'#5eead4', c2:'#a78bfa', c3:'#67e8f9', c4:'#86efac', accent:'#14b8a6', accent2:'#8b5cf6', bg:'linear-gradient(135deg,#ccfbf1 0%,#ede9fe 50%,#cffafe 100%)' },
+  { id:'dark', name:'تیره', c1:'#7c3aed', c2:'#db2777', c3:'#2563eb', c4:'#6d28d9', accent:'#a78bfa', accent2:'#f472b6', bg:'linear-gradient(135deg,#1a1330 0%,#241b3a 50%,#160f28 100%)' },
+];
+
+const root = document.documentElement;
+function applyTheme(id){
+  const t = THEMES.find(x=>x.id===id) || THEMES[0];
+  root.style.setProperty('--c1', t.c1);
+  root.style.setProperty('--c2', t.c2);
+  root.style.setProperty('--c3', t.c3);
+  root.style.setProperty('--c4', t.c4);
+  root.style.setProperty('--accent', t.accent);
+  root.style.setProperty('--accent2', t.accent2);
+  root.style.setProperty('--bg-base', t.bg);
+  document.body.classList.toggle('theme-dark', id==='dark');
+  localStorage.setItem('azhilator_theme', id);
+  renderThemeGrid(id);
+}
+
+function renderThemeGrid(active){
+  const grid = document.getElementById('themeGrid');
+  grid.innerHTML = '';
+  THEMES.forEach(t=>{
+    const el = document.createElement('div');
+    el.className = 'theme-swatch' + (t.id===active ? ' selected' : '');
+    el.innerHTML = `<div class="dot-row">
+        <span class="dot" style="background:${t.c1}"></span>
+        <span class="dot" style="background:${t.accent}"></span>
+        <span class="dot" style="background:${t.accent2}"></span>
+      </div>${t.name}`;
+    el.addEventListener('click', ()=>{ applyTheme(t.id); showToast('تم «'+t.name+'» فعال شد 🎨'); });
+    grid.appendChild(el);
+  });
+}
+
+/* ============================================================
+   RIPPLE EFFECT
+============================================================ */
+document.addEventListener('click', function(e){
+  const btn = e.target.closest('.btn, .icon-btn, .mini-btn, .nav-btn, .theme-swatch, .swap-btn');
+  if(!btn) return;
+  const rect = btn.getBoundingClientRect();
+  const ripple = document.createElement('span');
+  const size = Math.max(rect.width, rect.height);
+  ripple.className = 'ripple-el';
+  ripple.style.width = ripple.style.height = size+'px';
+  ripple.style.left = (e.clientX - rect.left - size/2)+'px';
+  ripple.style.top = (e.clientY - rect.top - size/2)+'px';
+  const prevPos = getComputedStyle(btn).position;
+  if(prevPos === 'static') btn.style.position = 'relative';
+  btn.style.overflow = btn.style.overflow || 'hidden';
+  btn.appendChild(ripple);
+  setTimeout(()=>ripple.remove(), 650);
+});
+
+/* ============================================================
+   TOAST
+============================================================ */
+let toastTimer = null;
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=> t.classList.remove('show'), 2600);
+}
+
+/* ============================================================
+   SCREEN NAVIGATION
+============================================================ */
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+/* ============================================================
+   AUTH / LOGIN
+============================================================ */
+const loginForm = document.getElementById('loginForm');
+const loginError = document.getElementById('loginError');
+
+function getUsers(){
+  try{ return JSON.parse(localStorage.getItem('azhilator_users')||'{}'); }catch(e){ return {}; }
+}
+function saveUsers(u){ localStorage.setItem('azhilator_users', JSON.stringify(u)); }
+
+loginForm.addEventListener('submit', function(e){
+  e.preventDefault();
+  loginError.textContent = '';
+  const username = document.getElementById('regUsername').value.trim();
+  const phone = document.getElementById('regPhone').value.trim();
+  const password = document.getElementById('regPassword').value;
+
+  if(!/^[0-9]{10,11}$/.test(phone)){
+    loginError.textContent = 'شماره موبایل معتبر وارد کنید';
+    document.querySelector('.auth-card').classList.add('shake');
+    setTimeout(()=>document.querySelector('.auth-card').classList.remove('shake'), 400);
+    return;
+  }
+  if(password.length < 4){
+    loginError.textContent = 'رمز عبور باید حداقل ۴ کاراکتر باشد';
+    return;
+  }
+
+  const users = getUsers();
+  if(users[username] && users[username].password !== password){
+    loginError.textContent = 'رمز عبور اشتباه است';
+    document.querySelector('.auth-card').classList.add('shake');
+    setTimeout(()=>document.querySelector('.auth-card').classList.remove('shake'), 400);
+    return;
+  }
+
+  users[username] = { username, phone, password };
+  saveUsers(users);
+  localStorage.setItem('azhilator_current_user', username);
+
+  document.getElementById('welcomeUserName').textContent = username;
+  showScreen('welcome-screen');
+});
+
+document.getElementById('enterAppBtn').addEventListener('click', function(){
+  showScreen('app-screen');
+  document.getElementById('bottomNav').classList.remove('hidden');
+});
+
+document.getElementById('logoutBtn').addEventListener('click', function(){
+  localStorage.removeItem('azhilator_current_user');
+  document.getElementById('bottomNav').classList.add('hidden');
+  loginForm.reset();
+  showScreen('login-screen');
+  showToast('با موفقیت خارج شدید 👋');
+});
+
+/* Auto-login if session exists */
+window.addEventListener('DOMContentLoaded', function(){
+  const cur = localStorage.getItem('azhilator_current_user');
+  const savedTheme = localStorage.getItem('azhilator_theme') || 'purple';
+  applyTheme(savedTheme);
+
+  if(cur){
+    document.getElementById('welcomeUserName').textContent = cur;
+    showScreen('welcome-screen');
+  }
+});
+
+/* ============================================================
+   BOTTOM NAV / TABS
+============================================================ */
+document.querySelectorAll('.nav-btn[data-tab]').forEach(btn=>{
+  btn.addEventListener('click', function(){
+    document.querySelectorAll('.nav-btn[data-tab]').forEach(b=>b.classList.remove('active'));
+    this.classList.add('active');
+    document.querySelectorAll('[id^="tab-"]').forEach(t=>t.classList.add('hidden'));
+    document.getElementById('tab-'+this.dataset.tab).classList.remove('hidden');
+  });
+});
+
+document.getElementById('teamNavBtn').addEventListener('click', ()=> openModal('teamModal'));
+document.getElementById('aboutNavBtn').addEventListener('click', ()=> openModal('aboutModal'));
+
+function openModal(id){ document.getElementById(id).classList.add('active'); }
+function closeModal(id){ document.getElementById(id).classList.remove('active'); }
+document.querySelectorAll('[data-close]').forEach(btn=>{
+  btn.addEventListener('click', ()=> closeModal(btn.dataset.close));
+});
+document.querySelectorAll('.modal-overlay').forEach(ov=>{
+  ov.addEventListener('click', function(e){ if(e.target === ov) closeModal(ov.id); });
+});
+
+/* ============================================================
+   TEAM MEMBERS RENDER
+============================================================ */
+const MEMBERS = [
+  "Mohaddeseh Mohammadi","Mahan Eshghi","Aylin Dardmand","Amirhossein Majidi",
+  "Kazemnejad","Amirhossein Alimoradi","Taha Asefi","Mohsen Akhtari",
+  "Sina Moradi","Ali Nazari","Mohammad Golmohammadzadeh"
+];
+const BADGE_COLORS = [
+  ['rgba(167,139,250,0.2)','#7c3aed'], ['rgba(249,168,212,0.25)','#db2777'],
+  ['rgba(147,197,253,0.25)','#2563eb'], ['rgba(134,239,172,0.25)','#059669'],
+  ['rgba(253,164,175,0.25)','#e11d48'], ['rgba(252,211,77,0.3)','#b45309'],
+  ['rgba(103,232,249,0.25)','#0891b2'], ['rgba(196,181,253,0.25)','#6d28d9'],
+];
+const membersList = document.getElementById('membersList');
+MEMBERS.forEach((name, i)=>{
+  const initials = name.split(' ').map(w=>w[0]).slice(0,2).join('');
+  const color = BADGE_COLORS[i % BADGE_COLORS.length];
+  const avatarBg = `hsl(${(i*47)%360}, 70%, 68%)`;
+  const card = document.createElement('div');
+  card.className = 'member-card';
+  card.innerHTML = `
+    <div class="avatar" style="background:${avatarBg};">${initials}</div>
+    <div class="mem-info">
+      <div class="mem-name">${name}</div>
+      <div class="mem-role">Team Member</div>
+    </div>
+    <div class="mem-badge" style="background:${color[0]}; color:${color[1]};">#${i+1}</div>
+  `;
+  membersList.appendChild(card);
+});
+
+/* ============================================================
+   TRANSLATION LOGIC
+============================================================ */
+let langFrom = 'fa', langTo = 'en';
+const pillFrom = document.getElementById('pillFrom');
+const pillTo = document.getElementById('pillTo');
+const inputText = document.getElementById('inputText');
+const outputText = document.getElementById('outputText');
+const charCount = document.getElementById('charCount');
+const statusText = document.getElementById('statusText');
+const loadingSpinner = document.getElementById('loadingSpinner');
+const swapBtn = document.getElementById('swapBtn');
+
+const LANG_LABEL = { fa: '🇮🇷 فارسی', en: '🇬🇧 English' };
+
+function updatePills(){
+  pillFrom.textContent = LANG_LABEL[langFrom];
+  pillTo.textContent = LANG_LABEL[langTo];
+  inputText.setAttribute('lang', langFrom);
+  inputText.dir = langFrom === 'fa' ? 'rtl' : 'ltr';
+  inputText.placeholder = langFrom === 'fa'
+    ? 'متن خود را برای ترجمه اینجا بنویسید...'
+    : 'Type your text here to translate...';
+}
+updatePills();
+
+swapBtn.addEventListener('click', function(){
+  [langFrom, langTo] = [langTo, langFrom];
+  updatePills();
+  swapBtn.classList.toggle('spin');
+  const tmp = inputText.value;
+  inputText.value = (outputText.innerText && !outputText.querySelector('.placeholder-text')) ? outputText.innerText : tmp;
+  charCount.textContent = inputText.value.length;
+  showToast('زبان‌ها جابجا شدند ⇄');
+});
+
+inputText.addEventListener('input', ()=> charCount.textContent = inputText.value.length);
+
+/* ============================================================
+   AZHILATOR — Smart Translation Engine v2
+   Multi-API (LibreTranslate → MyMemory → Dictionary → Lingva)
+   Smart Cache + Parallel Race + Retry + Timeout + History + Favorites
+   ============================================================ */
+
+const AZH_CACHE_KEY   = 'azhilator_cache_v2';
+const AZH_HISTORY_KEY = 'azhilator_history_v2';
+const AZH_FAVS_KEY    = 'azhilator_favorites_v2';
+const AZH_CACHE_MAX   = 500;
+const AZH_HISTORY_MAX = 100;
+
+function azhLoadJSON(key, fallback){
+  try{ const v = JSON.parse(localStorage.getItem(key)); return v == null ? fallback : v; }
+  catch(e){ return fallback; }
+}
+function azhSaveJSON(key, val){
+  try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){ /* storage full/unavailable */ }
+}
+function azhCacheKey(text, source, target){
+  return source + '|' + target + '|' + text.trim().toLowerCase();
+}
+function azhGetCache(text, source, target){
+  const cache = azhLoadJSON(AZH_CACHE_KEY, {});
+  return cache[azhCacheKey(text, source, target)] || null;
+}
+function azhSetCache(text, source, target, entry){
+  const cache = azhLoadJSON(AZH_CACHE_KEY, {});
+  cache[azhCacheKey(text, source, target)] = { ...entry, ts: Date.now() };
+  const keys = Object.keys(cache);
+  if(keys.length > AZH_CACHE_MAX){
+    keys.sort((a,b)=> (cache[a].ts||0) - (cache[b].ts||0));
+    for(let i=0;i<keys.length-AZH_CACHE_MAX;i++) delete cache[keys[i]];
+  }
+  azhSaveJSON(AZH_CACHE_KEY, cache);
+}
+function azhAddHistory(item){
+  const hist = azhLoadJSON(AZH_HISTORY_KEY, []);
+  hist.unshift({ ...item, ts: Date.now() });
+  if(hist.length > AZH_HISTORY_MAX) hist.length = AZH_HISTORY_MAX;
+  azhSaveJSON(AZH_HISTORY_KEY, hist);
+}
+function azhGetHistory(){ return azhLoadJSON(AZH_HISTORY_KEY, []); }
+function azhGetFavorites(){ return azhLoadJSON(AZH_FAVS_KEY, []); }
+function azhIsFavorite(text, source, target){
+  const key = azhCacheKey(text, source, target);
+  return azhGetFavorites().some(f=> f.key === key);
+}
+function azhToggleFavorite(item){
+  const favs = azhGetFavorites();
+  const key = azhCacheKey(item.text, item.source, item.target);
+  const idx = favs.findIndex(f=> f.key === key);
+  if(idx >= 0){ favs.splice(idx,1); azhSaveJSON(AZH_FAVS_KEY, favs); return false; }
+  favs.unshift({ ...item, key, ts: Date.now() });
+  azhSaveJSON(AZH_FAVS_KEY, favs);
+  return true;
+}
+// Exposed read-only helpers (no UI added — kept out of the approved layout)
+window.AZHILATOR_DATA = { getHistory: azhGetHistory, getFavorites: azhGetFavorites, toggleFavorite: azhToggleFavorite, isFavorite: azhIsFavorite };
+
+function azhEscapeHtml(str){
+  return String(str).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function azhFetchJSON(url, options, timeoutMs){
+  const controller = new AbortController();
+  const timer = setTimeout(()=> controller.abort(), timeoutMs || 5000);
+  try{
+    const res = await fetch(url, { ...(options||{}), signal: controller.signal });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function azhRetry(fn, retries, delayMs){
+  retries = retries == null ? 3 : retries;
+  delayMs = delayMs == null ? 350 : delayMs;
+  let lastErr;
+  for(let i=0; i<=retries; i++){
+    try{ return await fn(); }
+    catch(err){
+      lastErr = err;
+      if(i < retries) await new Promise(r=> setTimeout(r, delayMs * (i+1)));
+    }
+  }
+  throw lastErr || new Error('عملیات ناموفق بود');
+}
+
+/* ---- Provider #1: LibreTranslate (multiple mirrors) ---- */
+const LIBRE_MIRRORS = [
+  'https://translate.terraprint.co/translate',
+  'https://libretranslate.de/translate',
+  'https://translate.fedilab.app/translate'
+];
+async function azhLibreTranslate(text, source, target){
+  let lastErr;
+  for(const endpoint of LIBRE_MIRRORS){
+    try{
+      const data = await azhFetchJSON(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ q: text, source, target, format: 'text' })
+      }, 5000);
+      if(data && data.translatedText) return { text: data.translatedText, engine: 'LibreTranslate' };
+      throw new Error('پاسخ نامعتبر');
+    }catch(err){ lastErr = err; }
+  }
+  throw lastErr || new Error('LibreTranslate ناموفق بود');
+}
+
+/* ---- Provider #2: MyMemory ---- */
+async function azhMyMemory(text, source, target){
+  const url = 'https://api.mymemory.translated.net/get?q=' + encodeURIComponent(text) + '&langpair=' + source + '|' + target;
+  const data = await azhFetchJSON(url, {}, 5000);
+  const translated = data && data.responseData && data.responseData.translatedText;
+  if(!translated) throw new Error('MyMemory ناموفق بود');
+  return { text: translated, engine: 'MyMemory' };
+}
+
+/* ---- Provider #3: Lingva (Google Translate front-end) ---- */
+async function azhLingva(text, source, target){
+  const url = 'https://lingva.ml/api/v1/' + source + '/' + target + '/' + encodeURIComponent(text);
+  const data = await azhFetchJSON(url, {}, 5000);
+  if(data && data.translation) return { text: data.translation, engine: 'Lingva' };
+  throw new Error('Lingva ناموفق بود');
+}
+
+/* ---- Provider #4: Dictionary API — enrichment only (word mode) ---- */
+async function azhDictionaryEnrich(word, lang){
+  if(lang !== 'en') return null;
+  try{
+    const data = await azhFetchJSON('https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(word), {}, 5000);
+    const entry = Array.isArray(data) ? data[0] : null;
+    if(!entry) return null;
+    const meaning = entry.meanings && entry.meanings[0];
+    const def = meaning && meaning.definitions && meaning.definitions[0];
+    const synonyms = (def && def.synonyms && def.synonyms.length) ? def.synonyms : ((meaning && meaning.synonyms) || []);
+    return {
+      partOfSpeech: (meaning && meaning.partOfSpeech) || null,
+      synonyms: synonyms.slice(0, 6),
+      example: (def && def.example) || null
+    };
+  }catch(e){ return null; }
+}
+
+/* Run providers in parallel, resolve with the fastest valid response.
+   Each provider retries internally up to 3x before giving up. */
+function azhRaceProviders(fns){
+  return new Promise((resolve, reject)=>{
+    let remaining = fns.length;
+    const errors = [];
+    fns.forEach(fn=>{
+      fn().then(resolve).catch(err=>{
+        errors.push(err && err.message ? err.message : String(err));
+        remaining--;
+        if(remaining === 0) reject(new Error(errors.join(' | ')));
+      });
+    });
+  });
+}
+
+/* Core smart-translate: cache → parallel APIs (with fallback+retry) → word enrichment → cache write */
+async function azhSmartTranslate(text, source, target){
+  const cached = azhGetCache(text, source, target);
+  if(cached) return { ...cached, fromCache: true };
+
+  if(!navigator.onLine){
+    const err = new Error('OFFLINE_NO_CACHE');
+    err.offline = true;
+    throw err;
+  }
+
+  const result = await azhRaceProviders([
+    ()=> azhRetry(()=> azhLibreTranslate(text, source, target), 3, 350),
+    ()=> azhRetry(()=> azhMyMemory(text, source, target), 3, 350),
+    ()=> azhRetry(()=> azhLingva(text, source, target), 2, 350)
+  ]);
+
+  const entry = { translation: result.text, engine: result.engine };
+
+  const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
+  const isWordMode = wordCount === 1 && text.trim().length <= 40;
+  if(isWordMode){
+    const enrich = await azhDictionaryEnrich(result.text.trim(), target) || await azhDictionaryEnrich(text.trim(), source);
+    if(enrich && (enrich.partOfSpeech || enrich.synonyms.length || enrich.example)) entry.wordInfo = enrich;
+  }
+  entry.isWordMode = isWordMode;
+
+  azhSetCache(text, source, target, entry);
+  return entry;
+}
+
+function azhRenderResult(entry, target){
+  if(entry.wordInfo){
+    const wi = entry.wordInfo;
+    let html = '<div style="font-size:20px;font-weight:700;margin-bottom:8px;">' + azhEscapeHtml(entry.translation) + '</div>';
+    if(wi.partOfSpeech) html += '<div style="font-size:12.5px;color:var(--sub-text);margin-bottom:8px;">📖 ' + azhEscapeHtml(wi.partOfSpeech) + '</div>';
+    if(wi.synonyms && wi.synonyms.length) html += '<div style="font-size:13px;margin-bottom:6px;"><b>مترادف‌ها:</b> ' + wi.synonyms.map(azhEscapeHtml).join('، ') + '</div>';
+    if(wi.example) html += '<div style="font-size:13px;color:var(--sub-text);"><b>مثال:</b> ' + azhEscapeHtml(wi.example) + '</div>';
+    outputText.innerHTML = html;
+  } else {
+    outputText.textContent = entry.translation;
+  }
+  outputText.setAttribute('lang', target);
+  outputText.dir = target === 'fa' ? 'rtl' : 'ltr';
+}
+
+document.getElementById('translateBtn').addEventListener('click', async function(){
+  const text = inputText.value.trim();
+  if(!text){
+    showToast('لطفاً ابتدا متنی وارد کنید ✏️');
+    inputText.focus();
+    return;
+  }
+
+  const btn = this;
+  btn.disabled = true;
+  loadingSpinner.classList.add('show');
+  statusText.textContent = 'در حال جستجو...';
+  outputText.innerHTML = '<span class="placeholder-text">در حال ترجمه، لطفاً صبر کنید...</span>';
+
+  const statusTimer = setTimeout(()=>{ statusText.textContent = 'در حال یافتن بهترین ترجمه...'; }, 700);
+
+  try{
+    const entry = await azhSmartTranslate(text, langFrom, langTo);
+    azhRenderResult(entry, langTo);
+    azhAddHistory({ text, translation: entry.translation, source: langFrom, target: langTo, engine: entry.engine || 'Cache' });
+    statusText.textContent = entry.fromCache ? 'از حافظه پنهان (آنی) ⚡' : 'ترجمه با موفقیت انجام شد ✅';
+  }catch(err){
+    if(err && err.offline){
+      const cached = azhGetCache(text, langFrom, langTo);
+      if(cached){
+        azhRenderResult(cached, langTo);
+        statusText.textContent = 'آفلاین — نتیجه از حافظه پنهان ⚡';
+      } else {
+        outputText.innerHTML = '<span class="placeholder-text" style="color:#e11d48;">⚠️ اتصال اینترنت برقرار نیست و نتیجه‌ای در حافظه پنهان یافت نشد.</span>';
+        statusText.textContent = 'آفلاین';
+      }
+    } else {
+      outputText.innerHTML = '<span class="placeholder-text" style="color:#e11d48;">⚠️ خطا در ارتباط با سرویس‌های ترجمه. لطفاً دوباره تلاش کنید.</span>';
+      statusText.textContent = 'خطا در ترجمه';
+      showToast('خطا در اتصال به سرویس ترجمه ⚠️');
+    }
+  }finally{
+    clearTimeout(statusTimer);
+    loadingSpinner.classList.remove('show');
+    btn.disabled = false;
+    setTimeout(()=> statusText.textContent = '', 3000);
+  }
+});
+
+/* Double-tap on the result to bookmark it — no new UI elements added */
+outputText.addEventListener('dblclick', function(){
+  const text = inputText.value.trim();
+  if(!text || outputText.querySelector('.placeholder-text')) return;
+  const added = azhToggleFavorite({ text, translation: outputText.innerText.trim(), source: langFrom, target: langTo });
+  showToast(added ? 'به علاقه‌مندی‌ها اضافه شد ❤️' : 'از علاقه‌مندی‌ها حذف شد 💔');
+});
+
+document.getElementById('clearBtn').addEventListener('click', function(){
+  inputText.value = '';
+  charCount.textContent = '0';
+  outputText.innerHTML = '<span class="placeholder-text">ترجمه شما اینجا نمایش داده می‌شود...</span>';
+  statusText.textContent = '';
+  showToast('متن پاک شد 🗑️');
+});
+
+document.getElementById('copyBtn').addEventListener('click', async function(){
+  const text = outputText.innerText.trim();
+  if(!text || outputText.querySelector('.placeholder-text')){
+    showToast('متنی برای کپی وجود ندارد');
+    return;
+  }
+  try{
+    await navigator.clipboard.writeText(text);
+    showToast('متن کپی شد 📋');
+  }catch(e){
+    showToast('کپی با خطا مواجه شد');
+  }
+});
+
+document.getElementById('shareBtn').addEventListener('click', async function(){
+  const text = outputText.innerText.trim();
+  if(!text || outputText.querySelector('.placeholder-text')){
+    showToast('متنی برای اشتراک‌گذاری وجود ندارد');
+    return;
+  }
+  if(navigator.share){
+    try{
+      await navigator.share({ title: 'AZHILATOR', text });
+    }catch(e){ /* user cancelled */ }
+  }else{
+    try{
+      await navigator.clipboard.writeText(text);
+      showToast('اشتراک‌گذاری پشتیبانی نمی‌شود؛ متن کپی شد 📋');
+    }catch(e){
+      showToast('اشتراک‌گذاری در دسترس نیست');
+    }
+  }
+});
+
+document.getElementById('speakBtn').addEventListener('click', function(){
+  const text = outputText.innerText.trim();
+  if(!text || outputText.querySelector('.placeholder-text')){
+    showToast('متنی برای خواندن وجود ندارد');
+    return;
+  }
+  if(!('speechSynthesis' in window)){
+    showToast('این مرورگر از خواندن متن پشتیبانی نمی‌کند');
+    return;
+  }
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = langTo === 'fa' ? 'fa-IR' : 'en-US';
+  speechSynthesis.cancel();
+  speechSynthesis.speak(utter);
+});
+
+window.addEventListener('online', ()=> showToast('اتصال اینترنت برقرار شد ✅'));
+window.addEventListener('offline', ()=> showToast('اتصال اینترنت قطع شد ⚠️'));
+
+})();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('service-worker.js')
+      .catch(function (err) {
+        console.error('Service worker registration failed:', err);
+      });
+  });
+}
+</script>
+</body>
+</html>
